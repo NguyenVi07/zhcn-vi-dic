@@ -20,7 +20,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Quan trọng để lấy được lịch sử commit
+          fetch-depth: 0
 
       - name: Get Current Version
         id: vars
@@ -40,8 +40,10 @@ jobs:
 
       - name: Generate Changelog and Update manifest.ini
         if: steps.check_tag.outputs.exists == 'false'
+        env:
+          VERSION: ${{ steps.vars.outputs.version }}
         run: |
-          # Lấy tag gần nhất
+          # Get last tag
           LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
           
           if [ -z "$LAST_TAG" ]; then
@@ -50,30 +52,40 @@ jobs:
             COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"- %s")
           fi
           
-          echo "New commits detected:"
-          echo "$COMMITS"
+          # Pass data safely via environment variables
+          export COMMITS_DATA="$COMMITS"
           
-          # Cập nhật manifest.ini (phần changelog)
-          # Xóa phần changelog cũ và thay bằng phần mới (giữ lại format)
-          # Lưu ý: Đây là cách viết đơn giản, sẽ lấy các commit mới nhất đưa vào đầu
-          
-          NEW_CHANGELOG="v${{ steps.vars.outputs.version }}:\n$COMMITS"
-          
-          # Dùng sed để thay đổi nội dung trong ngoặc kép của changelog
-          # Cách này giả định changelog = """ ... """
           python3 -c "
+          import os
           import re
+          
+          version = os.environ.get('VERSION')
+          commits = os.environ.get('COMMITS_DATA')
+          
           with open('manifest.ini', 'r', encoding='utf-8') as f:
               content = f.read()
           
-          new_entry = \"v${{ steps.vars.outputs.version }}:\\n$COMMITS\"
-          # Tìm phần changelog = \"\"\" ... \"\"\"
-          pattern = r'(changelog\s*=\s*\"\"\"[\s\S]*?)\"\"\"'
+          new_entry = f'\nv{version}:\n{commits}'
+          
+          # Find changelog = \"\"\" ... \"\"\"
+          # Using a more robust regex that captures the content within triple quotes
+          pattern = r'(changelog\s*=\s*\"\"\")([\s\S]*?)\"\"\"'
+          
+          def replacer(match):
+              prefix = match.group(1)
+              old_changelog = match.group(2)
+              # If the new entry is already there, don't duplicate (rare case but good for safety)
+              if f'v{version}:' in old_changelog:
+                  return match.group(0)
+              return f'{prefix}{new_entry}\n{old_changelog}\"\"\"'
+
           if re.search(pattern, content):
-              # Chèn vào đầu danh sách changelog
-              updated = re.sub(pattern, r'\1' + new_entry + r'\\n\"\"\"', content)
+              updated = re.sub(pattern, replacer, content)
               with open('manifest.ini', 'w', encoding='utf-8') as f:
                   f.write(updated)
+              print(f'Successfully updated manifest.ini with version {version}')
+          else:
+              print('Warning: changelog pattern not found in manifest.ini')
           "
           
       - name: Commit updated manifest (Internal)
@@ -82,8 +94,10 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action Bot"
           git add manifest.ini
+          # Try to commit, but don't fail if there's nothing new
           git commit -m "docs: Auto-update changelog for v${{ steps.vars.outputs.version }} [skip ci]" || echo "No changes to commit"
-          git push origin main
+          # Push changes
+          git push origin main || echo "Push failed (maybe already pushed?)"
 
       - name: Create or Update Tag
         if: steps.check_tag.outputs.exists == 'false'
