@@ -1,41 +1,106 @@
-name: Auto Release Addon
+name: Pro Auto Release Addon
 
 on:
   push:
     branches:
       - main
-    tags:
-      - 'v*'
+    paths:
+      - 'manifest.ini'
+      - 'globalPlugins/**'
+      - 'dictionaries/**'
 
 permissions:
   contents: write
 
 jobs:
-  build:
+  release:
     runs-on: ubuntu-latest
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Quan trọng để lấy được lịch sử commit
 
-      - name: Get Version from manifest.ini
-        id: get_version
+      - name: Get Current Version
+        id: vars
         run: |
           VERSION=$(grep '^version =' manifest.ini | cut -d' ' -f3)
           echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Detected version: $VERSION"
+          echo "tag=v$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Check if Tag exists
+        id: check_tag
+        run: |
+          if git rev-parse "v${{ steps.vars.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate Changelog and Update manifest.ini
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          # Lấy tag gần nhất
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s")
+          else
+            COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"- %s")
+          fi
+          
+          echo "New commits detected:"
+          echo "$COMMITS"
+          
+          # Cập nhật manifest.ini (phần changelog)
+          # Xóa phần changelog cũ và thay bằng phần mới (giữ lại format)
+          # Lưu ý: Đây là cách viết đơn giản, sẽ lấy các commit mới nhất đưa vào đầu
+          
+          NEW_CHANGELOG="v${{ steps.vars.outputs.version }}:\n$COMMITS"
+          
+          # Dùng sed để thay đổi nội dung trong ngoặc kép của changelog
+          # Cách này giả định changelog = """ ... """
+          python3 -c "
+          import re
+          with open('manifest.ini', 'r', encoding='utf-8') as f:
+              content = f.read()
+          
+          new_entry = \"v${{ steps.vars.outputs.version }}:\\n$COMMITS\"
+          # Tìm phần changelog = \"\"\" ... \"\"\"
+          pattern = r'(changelog\s*=\s*\"\"\"[\s\S]*?)\"\"\"'
+          if re.search(pattern, content):
+              # Chèn vào đầu danh sách changelog
+              updated = re.sub(pattern, r'\1' + new_entry + r'\\n\"\"\"', content)
+              with open('manifest.ini', 'w', encoding='utf-8') as f:
+                  f.write(updated)
+          "
+          
+      - name: Commit updated manifest (Internal)
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action Bot"
+          git add manifest.ini
+          git commit -m "docs: Auto-update changelog for v${{ steps.vars.outputs.version }} [skip ci]" || echo "No changes to commit"
+          git push origin main
+
+      - name: Create or Update Tag
+        if: steps.check_tag.outputs.exists == 'false'
+        run: |
+          git tag "v${{ steps.vars.outputs.version }}"
+          git push origin "v${{ steps.vars.outputs.version }}"
 
       - name: Package Addon
         run: |
-          # Create zip of all files in current dir (addon root)
-          # Excluding git, workflows, and the addon itself
-          zip -r "zhcn_vi_dict_v${{ steps.get_version.outputs.version }}.nvda-addon" . -x "*.git*" ".github/*" "*.zip" "*.nvda-addon"
+          zip -r "zhcn_vi_dict_v${{ steps.vars.outputs.version }}.nvda-addon" . -x "*.git*" ".github/*" "*.zip" "*.nvda-addon"
 
-      - name: Create or Update Release
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
-          tag_name: v${{ steps.get_version.outputs.version }}
-          name: KtGame Chinese-Vietnamese Dictionary v${{ steps.get_version.outputs.version }}
+          tag_name: v${{ steps.vars.outputs.version }}
+          name: KtGame Chinese-Vietnamese Dictionary v${{ steps.vars.outputs.version }}
+          generate_release_notes: true
           files: |
             *.nvda-addon
           draft: false
