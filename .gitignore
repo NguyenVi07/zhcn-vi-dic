@@ -6,3 +6,5 @@ __pycache__/
 *.nvda-addon
 *.zip
 *.bak
+build.bat
+build.py
