@@ -40,6 +40,7 @@ jobs:
 
       - name: Generate Changelog and Update manifest.ini
         if: steps.check_tag.outputs.exists == 'false'
+        id: changelog_gen
         env:
           VERSION: ${{ steps.vars.outputs.version }}
         run: |
@@ -51,6 +52,9 @@ jobs:
           else
             COMMITS=$(git log $LAST_TAG..HEAD --pretty=format:"- %s")
           fi
+          
+          # Lưu changelog vào file để dùng ở các bước sau
+          echo "$COMMITS" > release_body.txt
           
           # Pass data safely via environment variables
           export COMMITS_DATA="$COMMITS"
@@ -67,14 +71,11 @@ jobs:
           
           new_entry = f'\nv{version}:\n{commits}'
           
-          # Find changelog = \"\"\" ... \"\"\"
-          # Using a more robust regex that captures the content within triple quotes
-          pattern = r'(changelog\s*=\s*\"\"\")([\s\S]*?)\"\"\"'
+          pattern = r'(changelog\s*=\s*\"\"\"[\s\S]*?)\"\"\"'
           
           def replacer(match):
               prefix = match.group(1)
               old_changelog = match.group(2)
-              # If the new entry is already there, don't duplicate (rare case but good for safety)
               if f'v{version}:' in old_changelog:
                   return match.group(0)
               return f'{prefix}{new_entry}\n{old_changelog}\"\"\"'
@@ -83,9 +84,6 @@ jobs:
               updated = re.sub(pattern, replacer, content)
               with open('manifest.ini', 'w', encoding='utf-8') as f:
                   f.write(updated)
-              print(f'Successfully updated manifest.ini with version {version}')
-          else:
-              print('Warning: changelog pattern not found in manifest.ini')
           "
           
       - name: Commit updated manifest (Internal)
@@ -94,9 +92,7 @@ jobs:
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action Bot"
           git add manifest.ini
-          # Try to commit, but don't fail if there's nothing new
           git commit -m "docs: Auto-update changelog for v${{ steps.vars.outputs.version }} [skip ci]" || echo "No changes to commit"
-          # Push changes
           git push origin main || echo "Push failed (maybe already pushed?)"
 
       - name: Create or Update Tag
@@ -112,8 +108,9 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.vars.outputs.version }}
-          name: KtGame Chinese-Vietnamese Dictionary v${{ steps.vars.outputs.version }}
+          tag_name: "v${{ steps.vars.outputs.version }}"
+          name: "KtGame Chinese-Vietnamese Dictionary v${{ steps.vars.outputs.version }}"
+          body_path: release_body.txt
           generate_release_notes: true
           files: |
             *.nvda-addon
