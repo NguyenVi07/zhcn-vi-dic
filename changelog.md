@@ -1,3 +1,6 @@
-1.0.2
+"""v1.0.2
 
-dùng AddonTemplate""
+sửa lỗi liên quan tới đọc dấu câu
+
+&nbsp;truyển sang sử dụng AddonTemplate"""
+
