@@ -21,7 +21,7 @@ addon_info = AddonInfo(
 	addon_summary=_("Chinese-Vietnamese Gamers' Dictionary"),
 	# Add-on description
 	# Translators: Long description to be shown for this add-on on add-on information from add-on store
-	addon_description=_("""Add-on từ điển Trung-Việt chuyên biệt dành cho game thủ khiếm thị trải nghiệm các tựa game Trung Quốc qua NVDA. 
+	addon_description=_("""Add-on từ điển Trung-Việt chuyên biệt dành cho game thủ khiếm thị trải nghiệm các tựa game Trung Quốc qua NVDA.
 Dữ liệu từ điển được phát triển bởi cộng đồng Convert truyện Trung-Việt và được chuyển sang định dạng tương thích NVDA bởi Lê Trọng Tấn"""),
 	# version
 	addon_version="1.0.2",
@@ -36,7 +36,7 @@ dùng AddonTemplate"""),
 	# URL for the add-on repository where the source code can be found
 	addon_sourceURL="https://github.com/NguyenVi07/zhcn-vi-dic",
 	# Documentation file name
-	addon_docFileName=None,
+	addon_docFileName="",
 	# Minimum NVDA version supported (e.g. "2019.3.0", minor version is optional)
 	addon_minimumNVDAVersion="2024.1",
 	# Last NVDA version supported/tested (e.g. "2024.4.0", ideally more recent than minimum version)
