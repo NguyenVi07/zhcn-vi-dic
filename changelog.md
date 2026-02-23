@@ -1,6 +1,4 @@
-"""v1.0.2
+"""v1.0.3
 
-sửa lỗi liên quan tới đọc dấu câu
-
-&nbsp;truyển sang sử dụng AddonTemplate"""
+Fix spacing before punctuation
 
