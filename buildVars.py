@@ -24,7 +24,7 @@ addon_info = AddonInfo(
 	addon_description=_("""Add-on từ điển Trung-Việt chuyên biệt dành cho game thủ khiếm thị trải nghiệm các tựa game Trung Quốc qua NVDA.
 Dữ liệu từ điển được phát triển bởi cộng đồng Convert truyện Trung-Việt và được chuyển sang định dạng tương thích NVDA bởi Lê Trọng Tấn"""),
 	# version
-	addon_version="1.0.3",
+	addon_version="1.0.4",
 	# Brief changelog for this version
 	# Translators: what's new content for the add-on version to be shown in the add-on store
 	addon_changelog=_("""1.0.2
