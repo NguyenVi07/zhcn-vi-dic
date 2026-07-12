@@ -28,7 +28,7 @@ Dữ liệu từ điển được phát triển bởi cộng đồng Convert tru
 	# Brief changelog for this version
 	# Translators: what's new content for the add-on version to be shown in the add-on store
 	addon_changelog=_("""1.0.5
-tương thích với nvda 2026""),
+tương thích với nvda 2026"""),
 	# Author(s)
 	addon_author="KtGame",
 	# URL for the add-on documentation support
